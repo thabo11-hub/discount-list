@@ -1,0 +1,36 @@
+name: Security checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 4 * * 1" # weekly: new vulnerabilities are published all the time
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the secret scan reads every commit
+      - name: Secret scan (all history, all branches)
+        run: python3 .github/scripts/secret_scan.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Dependency audit (the app has no runtime packages; this keeps it honest)
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm audit --omit=dev --audit-level=high
+      - name: Security headers are still configured
+        run: |
+          node -e "
+            const h = JSON.parse(require('fs').readFileSync('vercel.json','utf8')).headers.flatMap(r => r.headers).map(x => x.key);
+            for (const k of ['Content-Security-Policy','Strict-Transport-Security','X-Content-Type-Options','X-Frame-Options','Referrer-Policy','Permissions-Policy'])
+              if (!h.includes(k)) { console.error('missing header ' + k); process.exit(1); }
+            console.log('headers ok');"
+      - name: Attack tests (local Postgres)
+        run: npm test

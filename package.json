@@ -1,0 +1,14 @@
+{
+  "name": "discount-list",
+  "private": true,
+  "version": "1.0.0",
+  "description": "TrolleyScout: compare Black Friday deals across Checkers Sixty60, Pick n Pay asap! and Makro.",
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "dev": "node scripts/dev-server.mjs",
+    "test": "node --test --test-concurrency=1 tests/*.test.mjs"
+  }
+}

@@ -1,0 +1,9 @@
+# Only api/, lib/, public/, package.json and vercel.json are needed in a deployment.
+tests/
+scripts/
+sql/
+licenses/
+.github/
+.claude/
+*.md
+.env*

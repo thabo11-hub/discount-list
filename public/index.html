@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en-ZA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>TrolleyScout: Black Friday prices at Sixty60, Pick n Pay asap! and Makro</title>
+  <meta name="description" content="Compare Black Friday prices for household basics at Checkers Sixty60, Pick n Pay asap! and Makro. See where each item is cheapest, how much you save, and the shops nearest you.">
+  <meta name="theme-color" content="#1b2a41">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/fonts/anton.woff" as="font" type="font/woff" crossorigin>
+  <link rel="stylesheet" href="/css/app.css">
+  <script type="module" src="/js/app.js"></script>
+</head>
+<body class="has-bar">
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="/" aria-label="TrolleyScout home">
+        <svg viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" fill="#ffd23f"/><path d="M5 8h4l3.2 13h13.6L29 11H11" fill="none" stroke="#1b2a41" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/><circle cx="14" cy="26.5" r="2.2" fill="#1b2a41"/><circle cx="24" cy="26.5" r="2.2" fill="#1b2a41"/></svg>
+        TrolleyScout
+      </a>
+      <nav aria-label="Account"><a id="account-link" href="/account">Sign in</a></nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="intro wrap">
+      <h1>Where is your trolley cheapest this Black Friday?</h1>
+      <p>Prices for 11 household basics at Checkers Sixty60, Pick n Pay asap! and Makro, side by side. Tick what you need and TrolleyScout splits your trolley across the shops so you pay the least.</p>
+      <p class="updated" id="updated"></p>
+    </section>
+
+    <div class="wrap layout">
+      <section aria-labelledby="shelf-title">
+        <div class="shelf-tools">
+          <h2 id="shelf-title">Today's shelf</h2>
+          <p class="shelf-actions"><button class="linklike" type="button" id="select-all">Tick everything</button><button class="linklike" type="button" id="select-none">Clear trolley</button></p>
+        </div>
+        <ol class="shelf" id="shelf" aria-live="polite">
+          <li class="item"><p class="fine">Loading prices…</p></li>
+        </ol>
+        <p class="fine">Multi-buy prices (like 2 for R60) are shown per item and only apply when you buy the full deal. Prices come from a Black Friday 2026 deal list; check the app or shelf before you pay.</p>
+      </section>
+
+      <aside class="slip-col" aria-labelledby="slip-title" id="slip-section">
+        <h2 id="slip-title">Your till slip</h2>
+        <div class="slip" id="slip" aria-live="polite"></div>
+        <div class="slip-actions">
+          <button class="btn" type="button" id="save-list">Save my trolley</button>
+          <a class="btn secondary" href="#nearby">Find these shops</a>
+        </div>
+        <p class="status" id="save-status" role="status"></p>
+      </aside>
+    </div>
+
+    <section class="nearby" id="nearby" aria-labelledby="near-title">
+      <div class="wrap">
+        <h2 id="near-title">Shops near you</h2>
+        <p class="lede">Sixty60 delivers from your nearest Checkers, and Pick n Pay asap! from your nearest Pick n Pay. Makro is in store or online. Your location stays on your device apart from a rounded point used to look up stores; nothing is saved.</p>
+        <div class="near-controls">
+          <button class="btn" type="button" id="locate">Use my location</button>
+          <label>Or pick a town
+            <select id="city"><option value="">Choose a town</option></select>
+          </label>
+        </div>
+        <p class="status" id="near-status" role="status"></p>
+        <div class="near-grid" id="near-results" hidden>
+          <div>
+            <ul class="chain-legend" aria-hidden="true">
+              <li><i class="dot-sixty60"></i>Checkers (Sixty60)</li>
+              <li><i class="dot-pnp-asap"></i>Pick n Pay (asap!)</li>
+              <li><i class="dot-makro"></i>Makro</li>
+            </ul>
+            <svg class="radar" id="radar" viewBox="0 0 340 340" role="img" aria-label="Map of nearby stores around you"></svg>
+          </div>
+          <ol class="stores" id="stores"></ol>
+        </div>
+        <p class="fine">Store locations © <a href="https://www.openstreetmap.org/copyright" rel="noopener noreferrer" target="_blank">OpenStreetMap contributors</a>. A store may be missing if it isn't on the map yet.</p>
+      </div>
+    </section>
+
+    <section class="flyers wrap" id="flyers" hidden aria-labelledby="flyers-title">
+      <h2 id="flyers-title">Deal flyers</h2>
+      <div class="flyer-grid" id="flyer-grid"></div>
+    </section>
+  </main>
+
+  <footer class="foot wrap">
+    <p>TrolleyScout is an independent price comparison. It isn't linked to Checkers, Shoprite, Pick n Pay or Makro.</p>
+    <p><a href="/account">Your account</a></p>
+  </footer>
+
+  <div class="trolley-bar" id="trolley-bar" aria-live="polite">
+    <div><b id="bar-total">R0.00</b><span id="bar-save">Tick items to start</span></div>
+    <a href="#slip-section">See till slip</a>
+  </div>
+</body>
+</html>
