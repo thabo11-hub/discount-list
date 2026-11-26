@@ -156,3 +156,15 @@ describe('errors in production mode', () => {
     assert.doesNotMatch(all, /short|kkkk/, 'never echoes secret values');
   });
 });
+
+describe('store de-duplication', () => {
+  test('the same store mapped twice is shown once', async () => {
+    const { dedupe } = await import('../api/stores.js');
+    const s = dedupe([
+      { chain: 'Makro', lat: -26.28047, lng: 28.12946, km: 12 },
+      { chain: 'Makro', lat: -26.28059, lng: 28.12945, km: 12 },
+      { chain: 'Makro', lat: -26.15241, lng: 28.17168, km: 13.2 },
+    ]);
+    assert.equal(s.length, 2);
+  });
+});
