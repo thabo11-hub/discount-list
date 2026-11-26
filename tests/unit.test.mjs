@@ -97,6 +97,7 @@ describe('store lookup', () => {
   test('the Overpass query only ever contains numbers from the user', () => {
     const q = buildQuery(-26.2041, 28.0473, 15000);
     assert.match(q, /around:15000,-26\.2041,28\.0473/);
+    assert.ok(q.includes('nwr["brand"="Makro"];'));
     assert.doesNotMatch(q.replace(/"[^"]*"/g, ''), /[;]\s*out;\s*\(/);
   });
 
