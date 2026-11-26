@@ -528,3 +528,10 @@ describe('store lookup input', () => {
     assert.equal((await c.get('/api/stores?lat=-26.2);out;&lng=28')).status, 400);
   });
 });
+
+describe('static CORS', () => {
+  test('static files never allow every origin', async () => {
+    const r = await new Client(S.base).get('/');
+    assert.notEqual(r.headers.get('access-control-allow-origin'), '*');
+  });
+});
