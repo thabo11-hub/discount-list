@@ -168,3 +168,17 @@ describe('store de-duplication', () => {
     assert.equal(s.length, 2);
   });
 });
+
+describe('private items in the trolley maths', () => {
+  test('merged items quote like any product, per kg too', async () => {
+    const { withUserItems } = await import('../public/js/pricing.js');
+    const deals = withUserItems({ stores: [{ id: 'a' }, { id: 'b' }], products: [], offers: [] }, [
+      { id: '1', name: 'Rice', unit: 'kg', offers: [
+        { store_id: 'a', deal_qty: 1, deal_price_cents: 8999, pack_amount: 5, in_stock: true },
+        { store_id: 'b', deal_qty: 1, deal_price_cents: 15995, pack_amount: 10, in_stock: true }] },
+    ]);
+    const q = quote(deals, [{ id: 'u-1', qty: 10 }]);
+    assert.equal(q.splitTotal, 15995);
+    assert.equal(q.savings.vsHighest, 17998 - 15995);
+  });
+});

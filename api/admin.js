@@ -64,20 +64,52 @@ async function deleteOffer(ctx, s) {
   send(ctx.res, 200, { ok: true });
 }
 
+function slugify(name) {
+  const id = name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '');
+  if (id.length < 2) v.fail('name', 'Use at least two letters or numbers in the name.');
+  return id;
+}
+
+// Add a product for everyone, with its price at each shop, in one step (or update an existing one).
 async function saveProduct(ctx, s) {
-  const b = await readJson(ctx.req);
-  const unit = b.unit === 'litre' ? 'litre' : b.unit === 'item' ? 'item' : v.fail('unit', 'Choose item or litre.');
+  const b = await readJson(ctx.req, 8 * 1024);
+  const unit = v.unit(b.unit);
+  const name = v.text(b.name, 'name', 60, { required: true });
+  const deals = await rpc('dl_deals', { p_include_inactive: true });
+  const isNew = b.id === undefined || b.id === null || b.id === '';
+  const id = isNew ? slugify(name) : v.slug(b.id, 'id');
+  if (isNew && deals.products.some((p) => p.id === id)) {
+    throw new HttpError(409, 'A product with that name already exists. Change its prices in the table below.', {
+      code: 'exists',
+      field: 'name',
+    });
+  }
+  const offers = b.offers === undefined ? null : v.offers(b.offers, new Set(deals.stores.map((st) => st.id)), unit);
   const row = await rpc('dl_product_upsert', {
     p_actor: s.user_id,
-    p_id: v.slug(b.id, 'id'),
-    p_name: v.text(b.name, 'name', 60, { required: true }),
+    p_id: id,
+    p_name: name,
     p_unit: unit,
     p_default_qty: v.int(b.default_qty ?? 1, 'default_qty', 1, 99),
     p_sort: v.int(b.sort ?? 500, 'sort', 0, 100000),
     p_active: v.bool(b.active ?? true, 'active'),
   });
+  for (const o of offers || []) {
+    await rpc('dl_offer_upsert', {
+      p_actor: s.user_id,
+      p_product_id: id,
+      p_store_id: o.store_id,
+      p_brand: o.brand,
+      p_deal_text: o.deal_text,
+      p_deal_qty: o.deal_qty,
+      p_deal_price_cents: o.deal_price_cents,
+      p_pack_amount: o.pack_amount,
+      p_in_stock: o.in_stock,
+    });
+  }
   clearDealsCache();
-  send(ctx.res, 200, { product: row });
+  send(ctx.res, isNew ? 201 : 200, { product: row });
 }
 
 async function upload(ctx, s) {

@@ -118,3 +118,16 @@ export function rand(cents) {
     .replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   return `${sign}R${r}.${String(abs % 100).padStart(2, '0')}`;
 }
+
+/** A shopper's private items become extra products ("u-<uuid>") visible only to them. */
+export function withUserItems(deals, items) {
+  if (!items?.length) return deals;
+  return {
+    ...deals,
+    products: [...deals.products, ...items.map((i) => ({ id: `u-${i.id}`, name: i.name, unit: i.unit, default_qty: 1, mine: true }))],
+    offers: [...deals.offers, ...items.flatMap((i) => i.offers.map((o) => ({ ...o, product_id: `u-${i.id}` })))],
+  };
+}
+
+export const UNIT_SUFFIX = { item: '', litre: '/L', kg: '/kg' };
+export const UNIT_SHORT = { item: '', litre: 'L', kg: 'kg' };

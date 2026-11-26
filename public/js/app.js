@@ -1,4 +1,5 @@
-import { compareProduct, indexOffers, quote, rand, unitCents } from './pricing.js';
+import { itemForm } from './itemform.js';
+import { UNIT_SHORT, UNIT_SUFFIX, compareProduct, indexOffers, quote, rand, unitCents, withUserItems } from './pricing.js';
 import { api, clear, h, loadMe, status } from './ui.js';
 
 const SHORT = { sixty60: 'Sixty60', 'pnp-asap': 'PnP asap!', makro: 'Makro' };
@@ -16,7 +17,17 @@ const CITIES = [
   ['East London', -33.0153, 27.9116],
 ];
 
-const state = { deals: null, index: null, user: null, picked: new Map(), qty: new Map() };
+const state = { publicDeals: null, myItems: [], deals: null, index: null, user: null, picked: new Map(), qty: new Map() };
+
+/** Public products plus this shopper's private items, as one shelf. */
+function rebuild() {
+  state.deals = withUserItems(state.publicDeals, state.myItems);
+  state.index = indexOffers(state.deals);
+  for (const p of state.deals.products) {
+    if (!state.qty.has(p.id)) state.qty.set(p.id, p.default_qty);
+    if (!state.picked.has(p.id)) state.picked.set(p.id, false);
+  }
+}
 const $ = (id) => document.getElementById(id);
 
 // ------------------------------------------------------------------ trolley state
@@ -72,7 +83,7 @@ function tagFor(product, store, best) {
     .join(', ');
   return h('div', { class: `tag${isBest ? ' best' : ''}`, dataset: { store: store.id } },
     storeName,
-    h('span', { class: 'tag-price' }, rand(unit), product.unit === 'litre' ? h('small', {}, '/L') : null,
+    h('span', { class: 'tag-price' }, rand(unit), UNIT_SUFFIX[product.unit] ? h('small', {}, UNIT_SUFFIX[product.unit]) : null,
       isBest ? h('span', { class: 'visually-hidden' }, ' (cheapest)') : null),
     h('span', { class: 'tag-deal' }, deal));
 }
@@ -81,6 +92,7 @@ function noteFor(product) {
   const cmp = compareProduct(state.deals, product.id, state.index);
   const parts = [];
   if (product.unit === 'litre') parts.push('Prices are per litre, and quantity is in litres.');
+  if (product.unit === 'kg') parts.push('Prices are per kg, and quantity is in kg.');
   if (cmp.best) {
     const offer = state.index.get(product.id).get(cmp.best.store_id);
     const qty = state.qty.get(product.id);
@@ -114,12 +126,18 @@ function renderShelf() {
     const minus = h('button', { type: 'button', 'data-step': '-1', 'aria-label': `One less ${product.name}` }, '−');
     const plus = h('button', { type: 'button', 'data-step': '1', 'aria-label': `One more ${product.name}` }, '+');
     const out = h('output', { 'aria-label': `Quantity of ${product.name}` });
-    const li = h('li', { class: 'item', dataset: { id: product.id } },
+    const unitNote = { litre: ' (litres)', kg: ' (kg)' }[product.unit];
+    const edit = product.mine ? h('button', { type: 'button', class: 'linklike small' }, 'Edit') : null;
+    edit?.addEventListener('click', () => openItemDialog(product.id.slice(2)));
+    const offers = [...(state.index.get(product.id)?.values() || [])];
+    const li = h('li', { class: `item${product.mine ? ' mine' : ''}`, dataset: { id: product.id } },
       h('div', { class: 'item-head' },
-        h('label', { class: 'pick' }, cb, h('span', {}, product.name, product.unit === 'litre' ? h('small', {}, ' (litres)') : null)),
+        h('label', { class: 'pick' }, cb, h('span', {}, product.name, unitNote ? h('small', {}, unitNote) : null)),
         h('div', { class: 'qty' }, minus, out, plus)),
+      product.mine ? h('p', { class: 'mine-note' }, h('span', { class: 'chip' }, 'Only you see this'), edit) : null,
       h('div', { class: 'tags' }, state.deals.stores.map((s) => tagFor(product, s, best))),
       h('p', { class: 'item-note', id: `note-${product.id}` }));
+    li.dataset.find = [product.name, ...offers.map((o) => `${o.brand} ${o.deal_text}`)].join(' ').toLowerCase();
     cb.addEventListener('change', () => {
       state.picked.set(product.id, cb.checked);
       renderRow(li, product);
@@ -137,6 +155,7 @@ function renderShelf() {
     shelf.append(li);
     renderRow(li, product);
   }
+  applySearch();
 }
 
 // ------------------------------------------------------------------ till slip
@@ -163,7 +182,7 @@ function renderSlip(q, verifiedText = 'Checking totals with the server…', veri
     if (!part.lines.length) continue;
     slip.append(h('p', { class: 'shop' }, h('i', { class: `dot-${store.id}` }), `BUY AT ${store.name.toUpperCase()}`));
     for (const line of part.lines) {
-      const unit = line.unit === 'litre' ? 'L' : '';
+      const unit = UNIT_SHORT[line.unit] || '';
       slip.append(row(`${line.name} ×${line.qty}${unit}`, rand(line.cents)));
     }
     slip.append(row('Subtotal', rand(part.subtotal), 'row sub'), h('hr'));
@@ -209,8 +228,8 @@ function changed() {
       const same = server.splitTotal === local.splitTotal && server.savings.vsHighest === local.savings.vsHighest;
       if (same) renderSlip(local, '✓ Totals checked by the server against the latest prices.', true);
       else {
-        state.deals = await api('/api/deals');
-        state.index = indexOffers(state.deals);
+        state.publicDeals = await api('/api/deals');
+        rebuild();
         renderShelf();
         renderSlip(server, 'Prices changed since you opened the page. These are the latest totals.', true);
       }
@@ -361,6 +380,107 @@ async function loadFlyers() {
 
 // ------------------------------------------------------------------ start
 
+// ------------------------------------------------------------------ search
+
+const SHOP_SEARCH = [
+  ['Checkers', (q) => `https://www.checkers.co.za/search/all?q=${encodeURIComponent(q)}`],
+  ['Pick n Pay', (q) => `https://www.pnp.co.za/search/${encodeURIComponent(q)}`],
+  ['Makro', (q) => `https://www.makro.co.za/search?q=${encodeURIComponent(q)}`],
+];
+
+function searchTerm() {
+  return $('search').value.trim().replace(/\s+/g, ' ').slice(0, 60);
+}
+
+function applySearch() {
+  const term = searchTerm();
+  const words = term.toLowerCase().split(' ').filter(Boolean);
+  let shown = 0;
+  for (const li of document.querySelectorAll('#shelf .item[data-id]')) {
+    const hit = words.every((w) => li.dataset.find.includes(w));
+    li.hidden = !hit;
+    if (hit) shown++;
+  }
+  const empty = $('search-empty');
+  const shops = $('shop-search');
+  empty.hidden = !term || shown > 0;
+  shops.hidden = !term;
+  if (!term) return;
+  clear($('search-empty-text')).append(`Nothing on the shelf matches “${term}”.`);
+  const links = clear($('shop-links'));
+  for (const [name, url] of SHOP_SEARCH) {
+    links.append(h('a', { class: 'shop-link', href: url(term), target: '_blank', rel: 'noopener noreferrer' }, name));
+  }
+  const google = `https://www.google.com/search?q=${encodeURIComponent(`${term} site:checkers.co.za OR site:pnp.co.za OR site:makro.co.za`)}`;
+  links.append(h('a', { class: 'shop-link quiet', href: google, target: '_blank', rel: 'noopener noreferrer' }, 'All three on Google'));
+  $('shop-search-term').textContent = term;
+}
+
+// ------------------------------------------------------------------ your own items
+
+async function reloadMyItems() {
+  state.myItems = state.user ? (await api('/api/items')).items : [];
+  rebuild();
+}
+
+async function syncTrolley() {
+  saveLocal();
+  if (state.user) await api('/api/list', { method: 'PUT', body: { items: trolleyItems() } }).catch(() => {});
+}
+
+function closeDialog() {
+  const d = $('item-dialog');
+  if (d.open) d.close();
+}
+
+function openItemDialog(editId, prefillName = '') {
+  const d = $('item-dialog');
+  const body = clear($('item-dialog-body'));
+  const existing = editId ? state.myItems.find((i) => i.id === editId) : null;
+  $('item-dialog-title').textContent = existing ? 'Edit your item' : 'Add your own item';
+  if (!state.user) {
+    body.append(h('p', {}, 'Sign in to add your own items. Only you will see them, and they stay in your trolley on every device.'),
+      h('div', { class: 'slip-actions' }, h('a', { class: 'btn', href: '/account' }, 'Sign in'),
+        h('a', { class: 'btn secondary', href: '/account?tab=signup' }, 'Create an account')));
+  } else {
+    body.append(itemForm({
+      stores: state.deals.stores,
+      initial: existing || { name: prefillName },
+      submitLabel: existing ? 'Save changes' : 'Add to my trolley',
+      note: 'Only you see your items. Use the prices you saw in the app, flyer or shop.',
+      onCancel: closeDialog,
+      onSubmit: async (item) => {
+        const r = await api('/api/items?action=save', { method: 'POST', body: { ...item, id: existing?.id } });
+        await reloadMyItems();
+        const pid = `u-${r.id}`;
+        if (!existing) {
+          state.picked.set(pid, true);
+          state.qty.set(pid, 1);
+        }
+        closeDialog();
+        $('search').value = '';
+        renderShelf();
+        changed();
+        await syncTrolley();
+        document.querySelector(`.item[data-id="${CSS.escape(pid)}"]`)?.scrollIntoView({ block: 'center' });
+      },
+      onDelete: existing ? async () => {
+        await api('/api/items?action=delete', { method: 'POST', body: { id: existing.id } });
+        state.picked.delete(`u-${existing.id}`);
+        await reloadMyItems();
+        closeDialog();
+        renderShelf();
+        changed();
+        await syncTrolley();
+      } : null,
+    }));
+  }
+  if (!d.open) d.showModal();
+  body.querySelector('input')?.focus();
+}
+
+// ------------------------------------------------------------------ start
+
 async function start() {
   setupNearby();
   $('save-list').addEventListener('click', saveTrolley);
@@ -374,19 +494,24 @@ async function start() {
     renderShelf();
     changed();
   });
+  $('search').addEventListener('input', applySearch);
+  $('add-item').addEventListener('click', () => openItemDialog(null, searchTerm()));
+  $('add-searched').addEventListener('click', () => openItemDialog(null, searchTerm()));
+  $('item-dialog-close').addEventListener('click', closeDialog);
   try {
     const [deals, user] = await Promise.all([api('/api/deals'), loadMe()]);
-    state.deals = deals;
-    state.index = indexOffers(deals);
+    state.publicDeals = deals;
     state.user = user;
+    if (user) await reloadMyItems().catch(() => {});
+    rebuild();
   } catch (err) {
     const shelf = clear($('shelf'));
     shelf.append(h('li', { class: 'item' }, h('p', { class: 'status error' }, `${err.message} Reload the page to try again.`)));
     return;
   }
   if (state.user) $('account-link').textContent = 'Your account';
-  if (state.deals.updated_at) {
-    const d = new Date(state.deals.updated_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
+  if (state.publicDeals.updated_at) {
+    const d = new Date(state.publicDeals.updated_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
     $('updated').textContent = `Prices last updated ${d}.`;
   }
   let items = null;
@@ -398,7 +523,7 @@ async function start() {
       /* fall back to this device */
     }
   }
-  items ||= readLocal() || state.deals.products.map((p) => ({ id: p.id, qty: p.default_qty }));
+  items ||= readLocal() || state.publicDeals.products.map((p) => ({ id: p.id, qty: p.default_qty }));
   applyItems(items);
   renderShelf();
   changed();

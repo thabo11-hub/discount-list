@@ -25,7 +25,7 @@
   <main>
     <section class="intro wrap">
       <h1>Where is your trolley cheapest this Black Friday?</h1>
-      <p>Prices for 11 household basics at Checkers Sixty60, Pick n Pay asap! and Makro, side by side. Tick what you need and TrolleyScout splits your trolley across the shops so you pay the least.</p>
+      <p>Black Friday prices at Checkers Sixty60, Pick n Pay asap! and Makro, side by side. Tick what you need, add your own items with the prices you found, and TrolleyScout splits your trolley across the shops so you pay the least.</p>
       <p class="updated" id="updated"></p>
     </section>
 
@@ -34,6 +34,16 @@
         <div class="shelf-tools">
           <h2 id="shelf-title">Today's shelf</h2>
           <p class="shelf-actions"><button class="linklike" type="button" id="select-all">Tick everything</button><button class="linklike" type="button" id="select-none">Clear trolley</button></p>
+        </div>
+        <div class="finder" role="search">
+          <label class="visually-hidden" for="search">Search products</label>
+          <input type="search" id="search" placeholder="Search products, e.g. sugar" autocomplete="off" maxlength="60" enterkeyhint="search">
+          <button class="btn secondary" type="button" id="add-item">Add your own item</button>
+        </div>
+        <div class="shop-search" id="shop-search" hidden>
+          <p id="search-empty" hidden><span id="search-empty-text"></span> <button class="linklike" type="button" id="add-searched">Add it as your own item</button></p>
+          <p class="shop-search-label">Look for “<span id="shop-search-term"></span>” at the shops:</p>
+          <p class="shop-links" id="shop-links"></p>
         </div>
         <ol class="shelf" id="shelf" aria-live="polite">
           <li class="item"><p class="fine">Loading prices…</p></li>
@@ -88,6 +98,14 @@
     <p>TrolleyScout is an independent price comparison. It isn't linked to Checkers, Shoprite, Pick n Pay or Makro.</p>
     <p><a href="/account">Your account</a></p>
   </footer>
+
+  <dialog id="item-dialog" aria-labelledby="item-dialog-title">
+    <div class="dialog-head">
+      <h2 id="item-dialog-title">Add your own item</h2>
+      <button class="linklike" type="button" id="item-dialog-close">Close</button>
+    </div>
+    <div id="item-dialog-body"></div>
+  </dialog>
 
   <div class="trolley-bar" id="trolley-bar" aria-live="polite">
     <div><b id="bar-total">R0.00</b><span id="bar-save">Tick items to start</span></div>

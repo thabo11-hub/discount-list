@@ -1,5 +1,5 @@
 import { rpc } from '../lib/db.js';
-import { loadDeals } from '../lib/deals.js';
+import { dealsFor } from '../lib/deals.js';
 import { readJson, route, send } from '../lib/http.js';
 import { limit } from '../lib/ratelimit.js';
 import { requireCsrf, requireUser } from '../lib/session.js';
@@ -10,7 +10,7 @@ import { quote } from '../public/js/pricing.js';
 // never sends a user id, so one account can't read or change another's list.
 export default route(['GET', 'PUT'], async (ctx) => {
   const s = await requireUser(ctx);
-  const deals = await loadDeals();
+  const deals = await dealsFor(s);
   const productIds = new Set(deals.products.map((p) => p.id));
 
   if (ctx.req.method === 'GET') {

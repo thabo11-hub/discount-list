@@ -1,5 +1,6 @@
 // Admin tools. This page holds no data of its own: everything comes from /api/admin, which checks
 // the admin role on the server for every request.
+import { itemForm } from './itemform.js';
 import { api, clear, h, loadMe, showFieldError, status, textField } from './ui.js';
 
 const view = document.getElementById('view');
@@ -52,7 +53,7 @@ function offerCell(product, store, offer) {
         method: 'POST',
         body: {
           product_id: product.id, store_id: store.id, brand: brand.value, deal_text: deal.value,
-          deal_qty: Number(qty.value), price: price.value, pack_amount: product.unit === 'litre' ? pack.value : 1,
+          deal_qty: Number(qty.value), price: price.value, pack_amount: product.unit === 'item' ? 1 : pack.value,
           in_stock: stock.checked,
         },
       });
@@ -67,7 +68,7 @@ function offerCell(product, store, offer) {
     brand, deal,
     h('label', { class: 'inline' }, 'Items in deal', qty),
     price,
-    product.unit === 'litre' ? h('label', { class: 'inline' }, 'Litres each', pack) : null,
+    product.unit === 'item' ? null : h('label', { class: 'inline' }, product.unit === 'kg' ? 'Kg each' : 'Litres each', pack),
     h('label', { class: 'inline' }, stock, 'In stock'),
     h('div', { class: 'row-actions' }, save, msg)));
 }
@@ -77,32 +78,25 @@ function pricesPanel(deals) {
   const table = h('table', { class: 'grid' },
     h('thead', {}, h('tr', {}, h('th', {}, 'Product'), deals.stores.map((s) => h('th', {}, s.name)))),
     h('tbody', {}, deals.products.map((p) => h('tr', {},
-      h('th', {}, p.name, h('br'), h('small', {}, `${p.id} (${p.unit === 'litre' ? 'per litre' : 'per item'})${p.active ? '' : ', hidden'}`)),
+      h('th', {}, p.name, h('br'), h('small', {}, `${p.id} (${{ litre: 'per litre', kg: 'per kg' }[p.unit] || 'per item'})${p.active ? '' : ', hidden'}`)),
       deals.stores.map((s) => offerCell(p, s, idx.get(`${p.id}|${s.id}`)))))));
   return panel('Prices', h('p', { class: 'fine' }, 'Enter the deal price for the whole deal: for "2 for R60" put 2 items and 60.00. Changes show on the site within a minute.'),
     h('div', { class: 'table-scroll' }, table));
 }
 
-function productPanel() {
-  const msg = h('p', { class: 'status', role: 'status' });
-  const unit = h('select', { name: 'unit' }, h('option', { value: 'item' }, 'Per item'), h('option', { value: 'litre' }, 'Per litre'));
-  const f = h('form', { class: 'stack', novalidate: true },
-    textField({ name: 'id', label: 'Short id', maxlength: 40, hint: 'Lowercase letters, numbers and dashes, e.g. sunlight-bar' }),
-    textField({ name: 'name', label: 'Name shoppers see', maxlength: 60 }),
-    h('label', { class: 'field' }, h('span', {}, 'Compare by'), unit),
-    h('button', { class: 'btn', type: 'submit' }, 'Add product'), msg);
-  f.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const data = Object.fromEntries(new FormData(f));
-    try {
-      await api('/api/admin?action=product', { method: 'POST', body: { ...data, default_qty: 1, sort: 500, active: true } });
-      status(msg, 'Product added. Reload to set its prices.', 'good');
-      f.reset();
-    } catch (err) {
-      if (!showFieldError(f, err)) status(msg, err.message, 'error');
-    }
+function productPanel(deals) {
+  const done = h('p', { class: 'status', role: 'status' });
+  const form = itemForm({
+    stores: deals.stores,
+    submitLabel: 'Add product for everyone',
+    note: 'Everyone sees this product on the shelf straight away. Shoppers can also add private items for themselves.',
+    onSubmit: async (item) => {
+      await api('/api/admin?action=product', { method: 'POST', body: { name: item.name, unit: item.unit, offers: item.offers } });
+      status(done, `Added ${item.name}. Reloading…`, 'good');
+      setTimeout(() => location.reload(), 700);
+    },
   });
-  return panel('Add a product', f);
+  return panel('Add a product', form, done);
 }
 
 function uploadPanel(uploads) {
@@ -188,7 +182,7 @@ async function start() {
   if (user.role !== 'admin') return claimView();
   try {
     const o = await api('/api/admin?action=overview');
-    clear(view).append(securityPanel(o), pricesPanel(o.deals), h('div', { class: 'two-col' }, productPanel(), uploadPanel(o.uploads)));
+    clear(view).append(securityPanel(o), pricesPanel(o.deals), h('div', { class: 'two-col' }, productPanel(o.deals), uploadPanel(o.uploads)));
   } catch (err) {
     clear(view).append(h('section', { class: 'panel' }, h('p', { class: 'status error' }, err.message),
       err.body?.code === 'reauth' ? reauthButton() : null));

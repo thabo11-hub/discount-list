@@ -559,3 +559,119 @@ describe('nearby stores from the database', () => {
     assert.throws(() => S.sql("set role anon; select dl.import_stores('{}'::jsonb);"), /permission denied/);
   });
 });
+
+describe('private shopper items', () => {
+  const sugar = (extra = {}) => ({
+    name: 'White sugar 2.5kg',
+    unit: 'item',
+    offers: [
+      { store_id: 'sixty60', price: '49.99' },
+      { store_id: 'pnp-asap', price: '2 for R95', deal_qty: 2 },
+      { store_id: 'makro', in_stock: false },
+    ],
+    ...extra,
+  });
+
+  test('a shopper adds an item with prices and compares it; nobody else can see it', async () => {
+    const a = await newUser();
+    const bad = await a.c.post('/api/items?action=save', sugar());
+    assert.equal(bad.status, 400, 'a price like "2 for R95" is refused');
+    assert.equal(bad.json.field, 'pnp-asap_price');
+    const ok = await a.c.post('/api/items?action=save', sugar({ offers: [
+      { store_id: 'sixty60', price: '49.99' }, { store_id: 'pnp-asap', price: '95', deal_qty: 2 }, { store_id: 'makro', in_stock: false }] }));
+    assert.equal(ok.status, 201, ok.text);
+    const pid = `u-${ok.json.id}`;
+    const mine = await a.c.get('/api/items');
+    assert.equal(mine.json.items.length, 1);
+    assert.equal(mine.json.items[0].offers.length, 3);
+    const q = await a.c.post('/api/deals?action=quote', { items: [{ id: pid, qty: 2 }] });
+    assert.equal(q.status, 200, q.text);
+    assert.equal(q.json.quote.splitTotal, 9500);
+    assert.equal(q.json.quote.savings.vsHighest, 9998 - 9500);
+    assert.deepEqual(q.json.quote.storeTotals.makro.missing, [pid]);
+    const save = await a.c.put('/api/list', { items: [{ id: pid, qty: 2 }, { id: 'domestos', qty: 2 }] });
+    assert.equal(save.status, 200, save.text);
+
+    const pub = await new Client(S.base).get('/api/deals');
+    assert.ok(!pub.text.includes(ok.json.id), 'private items never appear in public prices');
+    assert.ok(!pub.text.includes('White sugar'));
+
+    const b = await newUser();
+    assert.deepEqual((await b.c.get('/api/items')).json.items, []);
+    assert.equal((await b.c.post('/api/deals?action=quote', { items: [{ id: pid, qty: 1 }] })).status, 400);
+    assert.equal((await b.c.put('/api/list', { items: [{ id: pid, qty: 1 }] })).status, 400);
+    const steal = await b.c.post('/api/items?action=save', sugar({ id: ok.json.id, name: 'Hacked', offers: [{ store_id: 'sixty60', price: '1' }] }));
+    assert.equal(steal.status, 404, 'cannot edit another shopper\'s item');
+    assert.equal((await b.c.post('/api/items?action=delete', { id: ok.json.id })).status, 404, 'cannot delete it either');
+    assert.equal((await a.c.get('/api/items')).json.items[0].name, 'White sugar 2.5kg');
+    assert.equal((await new Client(S.base).post('/api/deals?action=quote', { items: [{ id: pid, qty: 1 }] })).status, 400);
+
+    const del = await a.c.post('/api/items?action=delete', { id: ok.json.id });
+    assert.equal(del.status, 200);
+    assert.deepEqual((await a.c.get('/api/items')).json.items, []);
+  });
+
+  test('signed-out shoppers and cross-site requests cannot add items', async () => {
+    assert.equal((await new Client(S.base).post('/api/items?action=save', sugar())).status, 401);
+    assert.equal((await new Client(S.base).get('/api/items')).status, 401);
+    const { c } = await newUser();
+    assert.equal((await c.post('/api/items?action=save', sugar(), { csrf: false })).status, 403);
+    assert.equal((await c.post('/api/items?action=save', sugar(), { headers: { origin: 'https://evil.example' } })).status, 403);
+  });
+
+  test('item input is validated on the server', async () => {
+    const { c } = await newUser();
+    const cases = [
+      [{ name: '<img src=x onerror=alert(1)>' }, 'name'],
+      [{ name: '' }, 'name'],
+      [{ unit: 'gallon' }, 'unit'],
+      [{ offers: [] }, 'offers'],
+      [{ offers: [{ store_id: 'woolworths', price: '10' }] }, 'offers'],
+      [{ offers: [{ store_id: 'sixty60', price: '10' }, { store_id: 'sixty60', price: '11' }] }, 'offers'],
+      [{ offers: [{ store_id: 'sixty60', price: '-1' }] }, 'sixty60_price'],
+      [{ offers: [{ store_id: 'sixty60' }] }, 'sixty60_price'],
+      [{ offers: [{ store_id: 'sixty60', in_stock: false }] }, 'offers'],
+      [{ unit: 'kg', offers: [{ store_id: 'sixty60', price: '10' }] }, 'sixty60_pack_amount'],
+      [{ offers: [{ store_id: 'sixty60', price: '10', deal_qty: 0 }] }, 'sixty60_deal_qty'],
+      [{ offers: [{ store_id: 'sixty60', price: '10', brand: '<b>x</b>' }] }, 'sixty60_brand'],
+      [{ id: '../../etc' }, 'id'],
+    ];
+    for (const [extra, field] of cases) {
+      const r = await c.post('/api/items?action=save', sugar(extra));
+      assert.equal(r.status, 400, JSON.stringify(extra));
+      assert.equal(r.json.field, field, JSON.stringify(extra));
+    }
+  });
+
+  test('per-kg items compare by weight', async () => {
+    const { c } = await newUser();
+    const r = await c.post('/api/items?action=save', { name: 'Rice', unit: 'kg', offers: [
+      { store_id: 'sixty60', price: '89.99', pack_amount: '5' }, { store_id: 'makro', price: '159.95', pack_amount: '10' }] });
+    assert.equal(r.status, 201, r.text);
+    const q = await c.post('/api/deals?action=quote', { items: [{ id: `u-${r.json.id}`, qty: 10 }] });
+    assert.equal(q.json.quote.plan.makro.lines[0].cents, 15995);
+    assert.equal(q.json.quote.storeTotals.sixty60.total, 17998);
+  });
+
+  test('each shopper can keep at most 50 items', async () => {
+    const { c, email } = await newUser();
+    S.sql(`insert into dl.user_items (user_id, name) select id, 'Filler ' || g from dl.users, generate_series(1, 50) g where email = :'e';`, { e: email });
+    const r = await c.post('/api/items?action=save', sugar({ offers: [{ store_id: 'sixty60', price: '10' }] }));
+    assert.equal(r.status, 409);
+  });
+
+  test('the admin adds a product for everyone, with all shop prices, in one step', async () => {
+    const admin = await newAdmin();
+    const r = await admin.c.post('/api/admin?action=product', { name: 'Iwisa maize meal 10kg', unit: 'item', offers: [
+      { store_id: 'sixty60', price: '109.99' }, { store_id: 'pnp-asap', price: '104.99' }, { store_id: 'makro', price: '99.95' }] });
+    assert.equal(r.status, 201, r.text);
+    const pub = await new Client(S.base).get('/api/deals');
+    const p = pub.json.products.find((x) => x.name === 'Iwisa maize meal 10kg');
+    assert.ok(p, 'visible to everyone');
+    assert.equal(pub.json.offers.filter((o) => o.product_id === p.id).length, 3);
+    const dup = await admin.c.post('/api/admin?action=product', { name: 'Iwisa maize meal 10kg', unit: 'item', offers: [{ store_id: 'sixty60', price: '1' }] });
+    assert.equal(dup.status, 409, 'does not silently overwrite an existing product');
+    const { c } = await newUser();
+    assert.equal((await c.post('/api/admin?action=product', { name: 'Fake', unit: 'item', offers: [{ store_id: 'sixty60', price: '1' }] })).status, 403);
+  });
+});

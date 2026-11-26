@@ -290,3 +290,44 @@ table.grid th { background: var(--floor); font-weight: 600; }
 /* 404 */
 .lost { padding: 64px 0; }
 .lost h1 { font: 400 clamp(3rem, 12vw, 7rem)/0.9 var(--display); margin: 0 0 12px; }
+
+/* ------------------------------------------------------------------ search and your own items */
+.finder { display: flex; gap: 10px; margin: 4px 0 10px; }
+.finder input[type='search'] {
+  flex: 1; min-width: 0; min-height: 48px; padding: 8px 14px; font-size: 1.05rem;
+  border: 2px solid var(--ink); border-radius: 4px; background: var(--paper);
+}
+.finder .btn { flex: none; }
+@media (max-width: 520px) { .finder { flex-direction: column; } }
+.shop-search { background: var(--paper); border: 1px solid var(--line); border-left: 6px solid var(--special); padding: 10px 14px; margin-bottom: 10px; }
+.shop-search p { margin: 4px 0; }
+.shop-search-label { font-size: 0.92rem; color: var(--muted); }
+.shop-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.shop-link {
+  display: inline-flex; align-items: center; min-height: 40px; padding: 6px 14px;
+  border: 2px solid var(--ink); border-radius: 999px; font-weight: 600; text-decoration: none;
+}
+.shop-link.quiet { border-color: var(--line); font-weight: 400; }
+.item.mine { box-shadow: inset 6px 0 0 var(--special); }
+.mine-note { margin: -6px 0 10px; display: flex; align-items: center; gap: 12px; font-size: 0.86rem; }
+.chip { background: var(--ink); color: var(--special); font-weight: 600; font-size: 0.75rem; padding: 3px 8px; border-radius: 3px; }
+.linklike.small { font-size: 0.88rem; padding: 0; }
+
+dialog#item-dialog {
+  width: min(640px, calc(100vw - 20px)); max-height: calc(100vh - 20px); padding: 0;
+  border: 0; border-top: 6px solid var(--special); border-radius: 4px; color: var(--ink);
+}
+dialog#item-dialog::backdrop { background: rgba(27, 42, 65, 0.55); }
+.dialog-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 18px 6px; position: sticky; top: 0; background: var(--paper); z-index: 1; }
+.dialog-head h2 { margin: 0; }
+#item-dialog-body { padding: 4px 18px 20px; }
+.item-form .field input, .item-form .field select { min-height: 44px; }
+.shop-box { border: 1px solid var(--line); border-top: 4px solid var(--store, var(--ink)); padding: 10px 12px 12px; margin: 0; }
+.shop-box[data-store='sixty60'] { --store: var(--s-sixty60); }
+.shop-box[data-store='pnp-asap'] { --store: var(--s-pnp-asap); }
+.shop-box[data-store='makro'] { --store: var(--s-makro); }
+.shop-box legend { font-weight: 600; padding: 0 4px; }
+.shop-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 8px; align-items: start; }
+.shop-grid .field small { font-size: 0.78rem; }
+label.inline { display: flex; align-items: center; gap: 8px; font-size: 0.92rem; }
+label.inline input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--ink); }
