@@ -535,3 +535,27 @@ describe('static CORS', () => {
     assert.notEqual(r.headers.get('access-control-allow-origin'), '*');
   });
 });
+
+describe('nearby stores from the database', () => {
+  test('OpenStreetMap replies are imported safely and nearest stores come back per chain', async () => {
+    const reply = {
+      elements: [
+        { type: 'node', id: 1, lat: -26.19, lon: 28.04, tags: { shop: 'supermarket', brand: 'Checkers', name: 'Checkers Rosebank' } },
+        { type: 'way', id: 2, center: { lat: -26.17, lon: 28.06 }, tags: { shop: 'supermarket', brand: 'Pick n Pay', name: 'Pick n Pay <script>x</script>' } },
+        { type: 'node', id: 3, lat: -26.05, lon: 28.09, tags: { shop: 'wholesale', brand: 'Makro', name: 'Makro Woodmead' } },
+        { type: 'node', id: 4, lat: -26.2, lon: 28.05, tags: { shop: 'alcohol', name: 'Checkers LiquorShop Rosebank' } },
+        { type: 'node', id: 5, lat: 51.5, lon: -0.1, tags: { shop: 'wholesale', brand: 'Makro', name: 'Makro abroad' } },
+        { type: 'node', id: 6, lat: -26.2, lon: 28.05, tags: { shop: 'supermarket', name: 'Spar' } },
+      ],
+    };
+    const loaded = S.sql(`select dl.import_stores(:'r'::jsonb);`, { r: JSON.stringify(reply) });
+    assert.equal(loaded, '3');
+    assert.doesNotMatch(S.sql('select string_agg(name, \'|\') from dl.store_locations;'), /</);
+    const r = await new Client(S.base).get('/api/stores?lat=-26.20&lng=28.05');
+    assert.equal(r.status, 200, r.text);
+    assert.deepEqual(r.json.stores.map((s) => s.chain), ['Checkers', 'Pick n Pay', 'Makro']);
+    assert.equal(r.json.stores[0].store_id, 'sixty60');
+    assert.ok(r.json.stores[0].km < r.json.stores[2].km);
+    assert.throws(() => S.sql("set role anon; select dl.import_stores('{}'::jsonb);"), /permission denied/);
+  });
+});
