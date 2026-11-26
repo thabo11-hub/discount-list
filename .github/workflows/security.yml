@@ -18,7 +18,7 @@ jobs:
           fetch-depth: 0 # the secret scan reads every commit
       - name: Secret scan (all history, all branches)
         run: python3 .github/scripts/secret_scan.py
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Dependency audit (the app has no runtime packages; this keeps it honest)
