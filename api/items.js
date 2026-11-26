@@ -1,6 +1,7 @@
 import { DbError, rpc } from '../lib/db.js';
 import { loadDeals } from '../lib/deals.js';
 import { HttpError, query, readJson, route, send } from '../lib/http.js';
+import { screenshotEnabled } from '../lib/lookup.js';
 import { limit } from '../lib/ratelimit.js';
 import { requireCsrf, requireUser } from '../lib/session.js';
 import * as v from '../lib/validate.js';
@@ -49,7 +50,10 @@ const WRITES = { save, delete: remove };
 export default route(['GET', 'POST'], async (ctx) => {
   const s = await requireUser(ctx);
   if (ctx.req.method === 'GET') {
-    return send(ctx.res, 200, { items: await rpc('dl_user_items', { p_user_id: s.user_id }) });
+    return send(ctx.res, 200, {
+      items: await rpc('dl_user_items', { p_user_id: s.user_id }),
+      features: { screenshot: screenshotEnabled(), barcode: true },
+    });
   }
   const action = query(ctx.req).get('action') || '';
   const fn = Object.hasOwn(WRITES, action) ? WRITES[action] : null;

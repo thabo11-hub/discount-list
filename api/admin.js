@@ -4,6 +4,7 @@ import { clearDealsCache } from '../lib/deals.js';
 import { HttpError, query, readJson, readRaw, route, send } from '../lib/http.js';
 import { MAX_UPLOAD_BYTES, sniffImage } from '../lib/images.js';
 import { audit } from '../lib/log.js';
+import { screenshotEnabled } from '../lib/lookup.js';
 import { limit } from '../lib/ratelimit.js';
 import { requireAdmin, requireCsrf } from '../lib/session.js';
 import * as v from '../lib/validate.js';
@@ -32,7 +33,7 @@ async function overview(ctx, s) {
     count: stats.counts_1h[event],
     text,
   }));
-  send(ctx.res, 200, { ...stats, alerts, deals, uploads });
+  send(ctx.res, 200, { ...stats, alerts, deals, uploads, features: { screenshot: screenshotEnabled(), barcode: true } });
 }
 
 async function saveOffer(ctx, s) {

@@ -182,3 +182,32 @@ describe('private items in the trolley maths', () => {
     assert.equal(q.savings.vsHighest, 17998 - 15995);
   });
 });
+
+describe('auto-fill helpers', () => {
+  test('barcode check digits, sizes and readings', async () => {
+    const { validGtin, parseQuantity, normaliseReading } = await import('../lib/lookup.js');
+    assert.equal(validGtin('6001087340014'), true);
+    assert.equal(validGtin('6001087340015'), false);
+    assert.equal(validGtin('96385074'), true);
+    assert.deepEqual(parseQuantity('6 x 410g'), { amount: 0.41, dim: 'mass' });
+    assert.deepEqual(parseQuantity('1,5 L'), { amount: 1.5, dim: 'volume' });
+    assert.equal(parseQuantity('24 rolls'), null);
+    assert.throws(() => normaliseReading({ name: '<>{}', shop: 'pnp' }));
+    assert.equal(normaliseReading({ name: 'Rice', shop: 'makro', price_rand: 0 }).price, null);
+  });
+
+  test('test-only lookup addresses are refused in production', () => {
+    const script = `
+      import { checkEnv } from './lib/env.js';
+      process.env.NODE_ENV = 'production';
+      Object.assign(process.env, { SUPABASE_URL: 'https://abcdefghijklmnopqrst.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'k'.repeat(30),
+        SERVER_KEY: 'a'.repeat(43), IP_HASH_SALT: 'b'.repeat(32), CRON_SECRET: 'c'.repeat(32), APP_ORIGIN: 'https://x.vercel.app',
+        LOOKUP_GEMINI_BASE: 'http://evil.example' });
+      console.log(JSON.stringify(checkEnv()));
+    `;
+    const r = spawnSync('node', ['--input-type=module', '-e', script], { encoding: 'utf8', env: { PATH: process.env.PATH } });
+    const out = JSON.parse(r.stdout.trim());
+    assert.equal(out.ok, false);
+    assert.match(out.problems.join(' '), /LOOKUP_GEMINI_BASE/);
+  });
+});

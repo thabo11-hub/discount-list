@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { after, before, test } from 'node:test';
-import { startStack, strongPassword } from './helpers.mjs';
+import { KNOWN_BARCODE, FAKE_GEMINI_KEY, startFakeLookup } from './fake-lookup.mjs';
+import { freePort, startStack, strongPassword } from './helpers.mjs';
 
 let chromium;
 try {
@@ -15,15 +16,18 @@ const exe = ['/opt/pw-browsers/chromium-1243/chrome-linux64/chrome', '/usr/bin/g
 const skip = !chromium ? 'Playwright not installed' : false;
 
 let S;
+let F;
 let browser;
 before(async () => {
   if (skip) return;
-  S = await startStack('browser');
+  F = await startFakeLookup(await freePort());
+  S = await startStack('browser', { GEMINI_API_KEY: FAKE_GEMINI_KEY, LOOKUP_GEMINI_BASE: F.base, LOOKUP_OFF_BASE: F.base, LOOKUP_OPF_BASE: `${F.base}/opf` });
   browser = await chromium.launch({ executablePath: exe, args: ['--no-sandbox'] });
 });
 after(async () => {
   await browser?.close();
   S?.stop();
+  F?.stop();
 });
 
 const SAMPLE_STORES = {
@@ -142,8 +146,8 @@ test('a signed-in shopper adds a private item and it lands on the till slip', { 
   await page.fill('#search', 'brown sugar');
   await page.click('#add-searched');
   await page.waitForSelector('#item-dialog[open]');
-  assert.equal(await page.inputValue('#item-dialog input[type=text]'), 'brown sugar');
-  await page.fill('#item-dialog input[type=text]', 'Brown sugar 2kg');
+  assert.equal(await page.inputValue('#item-dialog .item-form > label input[type=text]'), 'brown sugar');
+  await page.fill('#item-dialog .item-form > label input[type=text]', 'Brown sugar 2kg');
   const price = (store) => page.locator(`.shop-box[data-store="${store}"] input[inputmode="decimal"]`).first();
   await price('sixty60').fill('42.99');
   await price('pnp-asap').fill('39.99');
@@ -156,6 +160,44 @@ test('a signed-in shopper adds a private item and it lands on the till slip', { 
   await page.waitForSelector('.slip .verified.ok');
   assert.match(await page.textContent('.slip'), /Brown sugar 2kg ×1/);
   await page.locator('.item.mine').screenshot({ path: '/tmp/ts-mine-row.png' });
+  assert.deepEqual(problems, []);
+  await ctx.close();
+});
+
+test('barcode and screenshots fill in the item; different pack sizes switch to per kg', { skip }, async () => {
+  const { ctx, page, problems } = await openPage({ width: 390, height: 844 });
+  await page.goto(S.base + '/account?tab=signup');
+  await page.fill('input[name=name]', 'Auto Filler');
+  await page.fill('input[name=email]', `auto-${Date.now()}@example.com`);
+  await page.fill('input[name=password]', strongPassword());
+  await page.click('button[type=submit]');
+  await page.waitForURL(S.base + '/');
+  await page.waitForSelector('.slip .verified.ok');
+  await page.click('#add-item');
+  await page.waitForSelector('#item-dialog[open]');
+  await page.click('.barcode-box summary');
+  await page.fill('.barcode-box input[inputmode=numeric]', KNOWN_BARCODE);
+  await page.click('.barcode-box button:has-text("Look up")');
+  await page.waitForSelector('.barcode-box .status.good');
+  assert.equal(await page.inputValue('#item-dialog .item-form > label input[type=text]'), 'Huletts White Sugar 2.5kg');
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAIAAABvFaqvAAAALElEQVR4XmP8f8megRqAiRqGgMCoQYTBaBgRBqNhRBiMhhFhMBpGhMHgCyMAxgoCQNmsDpkAAAAASUVORK5CYII=', 'base64'); // a real 24x24 PNG
+  await F.setScenario('sugar');
+  await page.setInputFiles('.shop-box[data-store="sixty60"] input[type=file]', { name: 'sixty60.png', mimeType: 'image/png', buffer: png });
+  await page.waitForSelector('.shop-box[data-store="sixty60"] .status.good');
+  await F.setScenario('sugar_pnp');
+  await page.setInputFiles('.shop-box[data-store="pnp-asap"] input[type=file]', { name: 'pnp.png', mimeType: 'image/png', buffer: png });
+  await page.waitForSelector('.shop-box[data-store="pnp-asap"] .status.good');
+  assert.equal(await page.inputValue('.shop-box[data-store="sixty60"] input[inputmode=decimal]'), '49.99');
+  assert.equal(await page.inputValue('.shop-box[data-store="pnp-asap"] input[inputmode=decimal]'), '41.99');
+  assert.equal(await page.inputValue('#item-dialog select'), 'kg');
+  assert.ok(await page.isVisible('.size-note'));
+  await page.screenshot({ path: '/tmp/ts-autofill.png' });
+  await page.click('#item-dialog button[type=submit]');
+  await page.waitForSelector('#item-dialog', { state: 'hidden' });
+  const row = page.locator('.item.mine');
+  await row.waitFor();
+  assert.match(await row.textContent(), /R20\.00\/kg/);
+  assert.match(await row.locator('.tag.best').textContent(), /Sixty60/);
   assert.deepEqual(problems, []);
   await ctx.close();
 });

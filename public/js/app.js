@@ -17,7 +17,7 @@ const CITIES = [
   ['East London', -33.0153, 27.9116],
 ];
 
-const state = { publicDeals: null, myItems: [], deals: null, index: null, user: null, picked: new Map(), qty: new Map() };
+const state = { publicDeals: null, myItems: [], features: {}, deals: null, index: null, user: null, picked: new Map(), qty: new Map() };
 
 /** Public products plus this shopper's private items, as one shelf. */
 function rebuild() {
@@ -419,7 +419,9 @@ function applySearch() {
 // ------------------------------------------------------------------ your own items
 
 async function reloadMyItems() {
-  state.myItems = state.user ? (await api('/api/items')).items : [];
+  const r = state.user ? await api('/api/items') : { items: [], features: {} };
+  state.myItems = r.items;
+  state.features = r.features || {};
   rebuild();
 }
 
@@ -445,6 +447,7 @@ function openItemDialog(editId, prefillName = '') {
   } else {
     body.append(itemForm({
       stores: state.deals.stores,
+      features: state.features,
       initial: existing || { name: prefillName },
       submitLabel: existing ? 'Save changes' : 'Add to my trolley',
       note: 'Only you see your items. Use the prices you saw in the app, flyer or shop.',

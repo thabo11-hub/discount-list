@@ -10,7 +10,10 @@ least, shows how much you save, and finds the nearest stores.
   Totals are re-checked by the server against the latest prices.
 - Shops near you: your location or a town, nearest Checkers, Pick n Pay and Makro on a radar plus
   directions (store data from OpenStreetMap).
-- Accounts save your trolley across devices. Admins update prices and upload deal flyers.
+- Accounts save your trolley across devices, and shoppers add their own private items: scan a
+  barcode to fill in the name and size (Open Food Facts), and read a screenshot from the Sixty60,
+  PnP asap! or Makro app to fill in the price (Google Gemini).
+- Admins update prices, add products for everyone and upload deal flyers.
 
 ## Stack
 
@@ -33,7 +36,7 @@ npm run dev                   # needs .env values; see .env.example
 
 Vercel project with these environment variables (type **Sensitive**): `SUPABASE_URL`,
 `SUPABASE_PUBLISHABLE_KEY`, `SERVER_KEY`, `IP_HASH_SALT`, `CRON_SECRET`, `APP_ORIGIN`, and optionally
-`RESEND_API_KEY` + `MAIL_FROM` for password reset emails. The database stores only the SHA-256 hash
+`RESEND_API_KEY` + `MAIL_FROM` for password reset emails and `GEMINI_API_KEY` for the screenshot reader. The database stores only the SHA-256 hash
 of `SERVER_KEY` (table `dl.server_keys`).
 
 Security notes: [SECURITY.md](SECURITY.md).

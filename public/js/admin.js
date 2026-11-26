@@ -84,10 +84,11 @@ function pricesPanel(deals) {
     h('div', { class: 'table-scroll' }, table));
 }
 
-function productPanel(deals) {
+function productPanel(deals, features) {
   const done = h('p', { class: 'status', role: 'status' });
   const form = itemForm({
     stores: deals.stores,
+    features,
     submitLabel: 'Add product for everyone',
     note: 'Everyone sees this product on the shelf straight away. Shoppers can also add private items for themselves.',
     onSubmit: async (item) => {
@@ -182,7 +183,7 @@ async function start() {
   if (user.role !== 'admin') return claimView();
   try {
     const o = await api('/api/admin?action=overview');
-    clear(view).append(securityPanel(o), pricesPanel(o.deals), h('div', { class: 'two-col' }, productPanel(o.deals), uploadPanel(o.uploads)));
+    clear(view).append(securityPanel(o), pricesPanel(o.deals), h('div', { class: 'two-col' }, productPanel(o.deals, o.features), uploadPanel(o.uploads)));
   } catch (err) {
     clear(view).append(h('section', { class: 'panel' }, h('p', { class: 'status error' }, err.message),
       err.body?.code === 'reauth' ? reauthButton() : null));

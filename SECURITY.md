@@ -20,6 +20,7 @@ real browser (`npm test`; CI runs it on every pull request and weekly).
 | Admin | Role checked on the server for every request; needs a sign-in from the last 12 hours; first admin unlocked with a one-time setup code |
 | Password reset | 256-bit single-use links, stored hashed, expire in 30 minutes, newest link only, sign out everywhere after reset |
 | Uploads | Admin only; JPEG, PNG or WebP by magic bytes; 2 MB max; served with nosniff and a sandbox CSP |
+| Auto-fill | Screenshot reading and barcode lookup need sign-in, CSRF and rate limits (30 screenshots an hour each, 400 a day overall); images are checked by bytes, shrunk on the phone and never stored; everything returned by Gemini or Open Food Facts is cleaned and range-checked; the Gemini key never reaches the browser |
 | Prices | Totals computed on the server from database prices; the browser sends only product ids and quantities. There are no payments in the app |
 | Errors | No stack traces or debug output in production; errors carry a reference id |
 | Logging | Security events (failed sign-ins, lockouts, CSRF blocks, rate limits, refused admin access, rejected uploads, price changes) logged without secrets; alerts on the admin page |

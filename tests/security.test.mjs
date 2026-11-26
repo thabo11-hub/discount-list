@@ -675,3 +675,13 @@ describe('private shopper items', () => {
     assert.equal((await c.post('/api/admin?action=product', { name: 'Fake', unit: 'item', offers: [{ store_id: 'sixty60', price: '1' }] })).status, 403);
   });
 });
+
+describe('auto-fill switched off', () => {
+  test('without a Gemini key the screenshot reader politely says it is off', async () => {
+    const { c } = await newUser();
+    const r = await c.req('POST', '/api/lookup?action=screenshot', { raw: PNG, headers: { 'content-type': 'image/png' } });
+    assert.equal(r.status, 503);
+    assert.equal(r.json.code, 'not_enabled');
+    assert.equal((await c.get('/api/items')).json.features.screenshot, false);
+  });
+});
