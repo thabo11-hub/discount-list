@@ -1,0 +1,17 @@
+{
+  "name": "TrolleyScout",
+  "short_name": "TrolleyScout",
+  "description": "Compare grocery prices at Checkers Sixty60, Pick n Pay asap! and Makro, and shop with a list that adds up as you go.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#e6eaef",
+  "theme_color": "#1b2a41",
+  "lang": "en-ZA",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

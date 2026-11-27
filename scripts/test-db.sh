@@ -39,6 +39,7 @@ SQL
 "${PSQL[@]}" -d "$DB" -f "$ROOT/sql/002_seed.sql" >/dev/null
 "${PSQL[@]}" -d "$DB" -f "$ROOT/sql/003_store_locations.sql" >/dev/null
 "${PSQL[@]}" -d "$DB" -f "$ROOT/sql/004_user_items.sql" >/dev/null
+"${PSQL[@]}" -d "$DB" -f "$ROOT/sql/005_shopper_prices.sql" >/dev/null
 "${PSQL[@]}" -d "$DB" -f "$ROOT/tests/sql/postgrest_emulator.sql" >/dev/null
 KEY_HASH=$(printf '%s' "$TEST_SERVER_KEY" | sha256sum | cut -d' ' -f1)
 CODE_HASH=$(printf '%s' "$TEST_ADMIN_CODE" | sha256sum | cut -d' ' -f1)

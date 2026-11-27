@@ -6,7 +6,7 @@ const SIZE_LABEL = { litre: 'Litres per pack', kg: 'Kg per pack' };
 let seq = 0;
 
 /** Shrink a photo or screenshot on the phone before upload (also drops its camera metadata). */
-async function shrink(file) {
+export async function shrink(file) {
   let bmp;
   try {
     bmp = await createImageBitmap(file);
@@ -26,7 +26,7 @@ async function shrink(file) {
   throw new Error('That image is too large. Crop it to the product and try again.');
 }
 
-async function detectBarcode(file) {
+export async function detectBarcode(file) {
   if (!('BarcodeDetector' in window)) return null;
   try {
     const detector = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a'] });
@@ -37,13 +37,13 @@ async function detectBarcode(file) {
   }
 }
 
-const readImage = async (file) => (await api('/api/lookup?action=screenshot', {
+export const readImage = async (file) => (await api('/api/lookup?action=screenshot', {
   method: 'POST', raw: await shrink(file), headers: { 'Content-Type': 'image/jpeg' },
 })).reading;
 
 const SHOP_NAME = { sixty60: 'Sixty60', 'pnp-asap': 'PnP asap!', makro: 'Makro' };
 
-function field(label, input, errKey, hint) {
+export function field(label, input, errKey, hint) {
   const id = `if-${++seq}`;
   input.id = id;
   return h('label', { class: 'field', for: id }, h('span', {}, label), input,

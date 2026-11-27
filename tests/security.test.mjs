@@ -45,6 +45,8 @@ describe('security headers, HTTPS and CORS', () => {
     assert.doesNotMatch(csp, /unsafe-inline|unsafe-eval/);
     assert.match(csp, /frame-ancestors 'none'/);
     assert.match(csp, /require-trusted-types-for 'script'/);
+    assert.match(csp, /trusted-types ts-sw(;|$)/, 'only the one policy that registers /sw.js');
+    assert.match(csp, /worker-src 'self'/);
     assert.match(r.headers.get('strict-transport-security'), /max-age=63072000/);
     assert.equal(r.headers.get('x-content-type-options'), 'nosniff');
     assert.equal(r.headers.get('x-frame-options'), 'DENY');

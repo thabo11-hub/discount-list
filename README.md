@@ -13,14 +13,20 @@ least, shows how much you save, and finds the nearest stores.
 - Accounts save your trolley across devices, and shoppers add their own private items: scan a
   barcode to fill in the name and size (Open Food Facts), and read a screenshot from the Sixty60,
   PnP asap! or Makro app to fill in the price (Google Gemini).
-- Admins update prices, add products for everyone and upload deal flyers.
+- Shopper prices: in the shop, a signed-in shopper scans a barcode and sends the shelf price (or
+  snaps the shelf label). The admin checks each one; approved prices show for everyone for 30 days,
+  marked with the day they were seen.
+- In-store mode: "Shop with this list" turns the trolley into a tick-off list per shop with a running
+  total. The app installs to the home screen, and a small service worker keeps the page and the latest
+  prices for a weak signal.
+- Admins update prices, add products for everyone, check shopper prices and upload deal flyers.
 
 ## Stack
 
 - `public/`: static HTML, CSS and JS (no framework, no build step).
 - `api/`: Vercel Node functions. `lib/`: shared server code.
 - Supabase Postgres: private `dl` schema, reached only through key-gated `public.dl_*` functions
-  (`sql/001_schema.sql`). Seed prices in `sql/002_seed.sql`.
+  (`sql/001_schema.sql` to `sql/005_shopper_prices.sql`, applied in order). Seed prices in `sql/002_seed.sql`.
 - No runtime npm packages.
 
 ## Run locally

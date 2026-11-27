@@ -201,3 +201,71 @@ test('barcode and screenshots fill in the item; different pack sizes switch to p
   assert.deepEqual(problems, []);
   await ctx.close();
 });
+
+test('in the shop: report a shelf price, then shop with a tick-off list (installable, offline-ready)', { skip }, async () => {
+  const { ctx, page, problems } = await openPage({ width: 390, height: 844 });
+  await page.goto(S.base + '/account?tab=signup');
+  const email = `shelf-${Date.now()}@example.com`;
+  await page.fill('input[name=name]', 'Shelf Reporter');
+  await page.fill('input[name=email]', email);
+  await page.fill('input[name=password]', strongPassword());
+  await page.click('button[type=submit]');
+  await page.waitForURL(S.base + '/');
+  await page.waitForSelector('.slip .verified.ok');
+  assert.equal(await page.evaluate(async () => !!(await navigator.serviceWorker.ready).active), true, 'service worker registered under Trusted Types');
+  assert.equal(await page.evaluate(() => document.querySelector('link[rel=manifest]').href.endsWith('/manifest.webmanifest')), true);
+
+  await page.click('#report-price');
+  await page.waitForSelector('#item-dialog[open] .report-form');
+  await page.selectOption('.report-form select >> nth=0', 'pnp-asap');
+  await page.fill('.report-form input[inputmode=numeric]', KNOWN_BARCODE);
+  await page.click('.report-form button:has-text("Look up")');
+  await page.waitForSelector('.report-form .status.good');
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAIAAABvFaqvAAAALElEQVR4XmP8f8megRqAiRqGgMCoQYTBaBgRBqNhRBiMhhFhMBpGhMHgCyMAxgoCQNmsDpkAAAAASUVORK5CYII=', 'base64');
+  await F.setScenario('deal');
+  await page.setInputFiles('.report-form .shot-row input[type=file]', { name: 'label.png', mimeType: 'image/png', buffer: png });
+  await page.waitForSelector('.report-form .shot-row .status.good');
+  assert.equal(await page.inputValue('.report-form input[inputmode=decimal]'), '95.00');
+  assert.equal(await page.inputValue('.report-form input[type=number]'), '2');
+  await page.screenshot({ path: '/tmp/ts-report.png' });
+  await page.click('.report-form button[type=submit]');
+  await page.waitForSelector('.report-form > .status.good');
+  await page.waitForSelector('.recent .st-pending');
+  await page.click('.report-form button:has-text("Close")');
+
+  // Approve it through the real admin API (this shopper is made admin for the test).
+  S.sql(`update dl.users set role = 'admin' where email = :'e';`, { e: email });
+  const approved = await page.evaluate(async (g) => {
+    const me = await (await fetch('/api/auth?action=me')).json();
+    const { reports } = await (await fetch('/api/admin?action=reports&status=pending')).json();
+    const res = await fetch('/api/admin?action=report-review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'TrolleyScout', 'X-CSRF-Token': me.csrf },
+      body: JSON.stringify({ id: reports.find((r) => r.gtin === g).id, decision: 'approve' }),
+    });
+    return res.status;
+  }, KNOWN_BARCODE);
+  assert.equal(approved, 200);
+  await page.reload();
+  const row = page.locator(`.item.shopper[data-id="c-${KNOWN_BARCODE}"]`);
+  await row.waitFor();
+  assert.match(await row.textContent(), /Shopper prices/);
+  assert.match(await row.textContent(), /2 for R95\.00, seen/);
+  await row.locator('input[type=checkbox]').check();
+  await page.waitForSelector('.slip .verified.ok');
+
+  await page.click('#shop-mode');
+  await page.waitForSelector('#shop-dialog[open] .checklist');
+  const first = page.locator('#shop-dialog .checklist input').first();
+  await page.screenshot({ path: '/tmp/ts-instore-before.png' });
+  await first.check({ timeout: 5000 });
+  assert.match(await page.textContent('#shop-dialog .in-store-sum span'), /^1 of \d+ items in your trolley$/);
+  await page.screenshot({ path: '/tmp/ts-instore.png' });
+  await page.reload();
+  await page.waitForSelector('.slip .verified.ok');
+  await page.click('#shop-mode');
+  await page.waitForSelector('#shop-dialog[open] .checklist');
+  assert.equal(await page.locator('#shop-dialog .checklist input:checked').count(), 1, 'ticks survive a reload');
+  assert.deepEqual(problems, []);
+  await ctx.close();
+});
