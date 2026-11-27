@@ -313,14 +313,14 @@ table.grid th { background: var(--floor); font-weight: 600; }
 .chip { background: var(--ink); color: var(--special); font-weight: 600; font-size: 0.75rem; padding: 3px 8px; border-radius: 3px; }
 .linklike.small { font-size: 0.88rem; padding: 0; }
 
-dialog#item-dialog {
+dialog.sheet {
   width: min(640px, calc(100vw - 20px)); max-height: calc(100vh - 20px); padding: 0;
   border: 0; border-top: 6px solid var(--special); border-radius: 4px; color: var(--ink);
 }
-dialog#item-dialog::backdrop { background: rgba(27, 42, 65, 0.55); }
+dialog.sheet::backdrop { background: rgba(27, 42, 65, 0.55); }
 .dialog-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 18px 6px; position: sticky; top: 0; background: var(--paper); z-index: 1; }
 .dialog-head h2 { margin: 0; }
-#item-dialog-body { padding: 4px 18px 20px; }
+.sheet-body { padding: 4px 18px 20px; }
 .item-form .field input, .item-form .field select { min-height: 44px; }
 .shop-box { border: 1px solid var(--line); border-top: 4px solid var(--store, var(--ink)); padding: 10px 12px 12px; margin: 0; }
 .shop-box[data-store='sixty60'] { --store: var(--s-sixty60); }
@@ -340,3 +340,39 @@ label.inline input[type='checkbox'] { width: 20px; height: 20px; accent-color: v
 .shot-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-bottom: 8px; }
 .shot-row .status { margin: 0; font-size: 0.86rem; }
 .size-note { background: var(--special); color: var(--ink); padding: 6px 10px; }
+
+/* ------------------------------------------------------------------ at the shop */
+.at-shop { background: var(--paper); border: 2px solid var(--ink); border-radius: 4px; padding: 12px 14px; margin-top: 14px; max-width: 70ch; }
+.at-shop p { margin: 0 0 10px; }
+.at-shop .fine { margin: 10px 0 0; }
+.item.shopper { box-shadow: inset 6px 0 0 var(--ok); }
+.chip.shopper { background: var(--ok); color: #fff; }
+.shelf-actions [aria-pressed='true'] { font-weight: 700; text-decoration: none; }
+.report-form .shop-box { border-top-color: var(--ink); }
+.report-form .shop-box { display: grid; gap: 10px; }
+.report-form .shop-box .barcode-row { margin-top: 0; }
+.report-form .shot-row { margin: 0; }
+.recent h3 { font-size: 1rem; margin: 8px 0 6px; }
+.recent ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.recent li { display: flex; justify-content: space-between; gap: 10px; align-items: center; font-size: 0.9rem; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.chip.st-pending { background: var(--floor); color: var(--ink); }
+.chip.st-approved { background: var(--ok); color: #fff; }
+.chip.st-rejected { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+
+/* in-store list */
+.in-store-sum { display: grid; gap: 4px; background: var(--ink); color: var(--paper); padding: 12px 14px; border-radius: 4px; margin-bottom: 12px; }
+.in-store-sum b { font: 400 1.7rem/1.1 var(--display); color: var(--special); }
+.in-store-sum span { font-size: 0.9rem; }
+.in-store-sum progress { width: 100%; height: 8px; accent-color: var(--special); }
+.shop-group { margin-bottom: 14px; }
+.shop-group h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 1.05rem; }
+.shop-group h3 span { margin-left: auto; font-family: var(--till); font-weight: 700; }
+.checklist { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.checklist li { border-bottom: 1px solid var(--line); }
+.checklist label { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 6px 2px; cursor: pointer; }
+.checklist input { width: 24px; height: 24px; flex: none; accent-color: var(--ok); }
+.checklist .what { flex: 1; display: grid; gap: 2px; }
+.checklist .what small { color: var(--muted); font-size: 0.8rem; }
+.checklist .cost { font-family: var(--till); font-weight: 700; }
+.checklist li.got .what, .checklist li.got .cost { color: var(--muted); text-decoration: line-through; }
+.shop-group h3 i { display: inline-block; width: 10px; height: 10px; flex: none; }

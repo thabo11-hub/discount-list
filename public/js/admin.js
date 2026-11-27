@@ -164,6 +164,76 @@ function securityPanel(o) {
   return panel('Security', alerts, stats, h('div', { class: 'table-scroll' }, table));
 }
 
+// ---- shopper prices: check each one before everyone sees it
+const rands = (c) => `R${(c / 100).toFixed(2)}`;
+
+function reportRow(r, onDone) {
+  const price = r.deal_qty > 1 ? `${r.deal_qty} for ${rands(r.deal_price_cents)}` : rands(r.deal_price_cents);
+  const each = r.deal_qty > 1 ? r.deal_price_cents / r.deal_qty : r.deal_price_cents;
+  const notes = [];
+  if (r.live_cents) {
+    const diff = Math.round(((each - r.live_cents) / r.live_cents) * 100);
+    notes.push(`Live price now ${rands(r.live_cents)} each${Math.abs(diff) >= 25 ? ` (this is ${diff > 0 ? '+' : ''}${diff}%, check it)` : ''}`);
+  }
+  notes.push(`From ${r.reporter}, ${r.reporter_approved} approved before`);
+  const msg = h('span', { class: 'status', role: 'status' });
+  const act = (decision, label, cls) => {
+    const b = h('button', { class: `btn small ${cls}`, type: 'button' }, label);
+    b.addEventListener('click', async () => {
+      for (const x of b.parentElement.querySelectorAll('button')) x.disabled = true;
+      try {
+        await api('/api/admin?action=report-review', { method: 'POST', body: { id: r.id, decision } });
+        onDone();
+      } catch (err) {
+        status(msg, err.message, 'error');
+        for (const x of b.parentElement.querySelectorAll('button')) x.disabled = false;
+      }
+    });
+    return b;
+  };
+  const buttons = r.status === 'pending'
+    ? [act('approve', 'Approve', ''), act('reject', 'Reject', 'secondary')]
+    : [act('reject', 'Take down', 'secondary')];
+  return h('tr', {},
+    h('td', {}, h('b', {}, r.name), r.brand ? h('small', {}, ` ${r.brand}`) : null, h('br'), h('small', {}, `Barcode ${r.gtin}`)),
+    h('td', {}, SHORT[r.store_id] || r.store_id, r.branch ? h('small', {}, h('br'), r.branch) : null),
+    h('td', {}, h('b', {}, price), h('br'), h('small', {}, `seen ${r.seen_on}`)),
+    h('td', {}, h('small', {}, notes.join('. '))),
+    h('td', {}, h('div', { class: 'row-actions' }, buttons), msg));
+}
+
+function reportsPanel() {
+  const body = h('div', {});
+  const tabs = h('p', { class: 'shelf-actions' });
+  const show = async (st) => {
+    for (const b of tabs.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.st === st));
+    clear(body).append(h('p', { class: 'fine' }, 'Loading…'));
+    try {
+      const { reports } = await api(`/api/admin?action=reports&status=${st}`);
+      clear(body);
+      if (!reports.length) {
+        body.append(h('p', { class: 'fine' }, st === 'pending' ? 'No shopper prices waiting. New ones appear here.' : 'No shopper prices are live.'));
+        return;
+      }
+      const rows = reports.map((r) => reportRow(r, () => show(st)));
+      body.append(h('div', { class: 'table-scroll' }, h('table', { class: 'grid reports' },
+        h('thead', {}, h('tr', {}, h('th', {}, 'Product'), h('th', {}, 'Shop'), h('th', {}, 'Price'), h('th', {}, 'Check'), h('th', {}, ''))),
+        h('tbody', {}, rows))));
+    } catch (err) {
+      clear(body).append(h('p', { class: 'status error' }, err.message));
+    }
+  };
+  for (const [st, label] of [['pending', 'Waiting for a check'], ['approved', 'Live now']]) {
+    const b = h('button', { class: 'linklike', type: 'button', dataset: { st } }, label);
+    b.addEventListener('click', () => show(st));
+    tabs.append(b);
+  }
+  show('pending');
+  return panel('Shopper prices',
+    h('p', { class: 'fine' }, 'Prices shoppers saw on the shelf. Approve the ones that look right: they show for everyone for 30 days, marked with the day they were seen.'),
+    tabs, body);
+}
+
 function reauthButton() {
   const b = h('button', { class: 'btn', type: 'button' }, 'Sign in again');
   b.addEventListener('click', async () => {
@@ -183,7 +253,7 @@ async function start() {
   if (user.role !== 'admin') return claimView();
   try {
     const o = await api('/api/admin?action=overview');
-    clear(view).append(securityPanel(o), pricesPanel(o.deals), h('div', { class: 'two-col' }, productPanel(o.deals, o.features), uploadPanel(o.uploads)));
+    clear(view).append(securityPanel(o), reportsPanel(), pricesPanel(o.deals), h('div', { class: 'two-col' }, productPanel(o.deals, o.features), uploadPanel(o.uploads)));
   } catch (err) {
     clear(view).append(h('section', { class: 'panel' }, h('p', { class: 'status error' }, err.message),
       err.body?.code === 'reauth' ? reauthButton() : null));

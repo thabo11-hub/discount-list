@@ -11,6 +11,7 @@ export default route(['GET'], async (ctx) => {
     throw new HttpError(401, 'Not allowed.', { code: 'unauthorized' });
   }
   const result = await rpc('dl_cleanup', {});
+  result.price_reports = (await rpc('dl_reports_cleanup', {})).deleted;
   logEvent('info', 'cleanup', result);
   send(ctx.res, 200, { ok: true, removed: result });
 });

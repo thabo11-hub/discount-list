@@ -7,6 +7,8 @@
   <meta name="description" content="Compare Black Friday prices for household basics at Checkers Sixty60, Pick n Pay asap! and Makro. See where each item is cheapest, how much you save, and the shops nearest you.">
   <meta name="theme-color" content="#1b2a41">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
   <link rel="preload" href="/fonts/anton.woff" as="font" type="font/woff" crossorigin>
   <link rel="stylesheet" href="/css/app.css">
   <script type="module" src="/js/app.js"></script>
@@ -27,6 +29,14 @@
       <h1>Where is your trolley cheapest this Black Friday?</h1>
       <p>Black Friday prices at Checkers Sixty60, Pick n Pay asap! and Makro, side by side. Tick what you need, add your own items with the prices you found, and TrolleyScout splits your trolley across the shops so you pay the least.</p>
       <p class="updated" id="updated"></p>
+      <div class="at-shop">
+        <p><b>In the shop?</b> Scan a barcode and send the price on the shelf. Once it's checked, every shopper can compare it.</p>
+        <div class="slip-actions">
+          <button class="btn" type="button" id="report-price">Report a shelf price</button>
+          <button class="btn secondary" type="button" id="install-app" hidden>Install the app</button>
+        </div>
+        <p class="fine" id="ios-tip" hidden>To keep TrolleyScout on your home screen, tap Share, then Add to Home Screen.</p>
+      </div>
     </section>
 
     <div class="wrap layout">
@@ -48,7 +58,7 @@
         <ol class="shelf" id="shelf" aria-live="polite">
           <li class="item"><p class="fine">Loading prices…</p></li>
         </ol>
-        <p class="fine">Multi-buy prices (like 2 for R60) are shown per item and only apply when you buy the full deal. Prices come from a Black Friday 2026 deal list; check the app or shelf before you pay.</p>
+        <p class="fine">Multi-buy prices (like 2 for R60) are shown per item and only apply when you buy the full deal. Prices come from a Black Friday 2026 deal list, and shopper prices from shelves on the day shown. Check the app or shelf before you pay.</p>
       </section>
 
       <aside class="slip-col" aria-labelledby="slip-title" id="slip-section">
@@ -56,6 +66,7 @@
         <div class="slip" id="slip" aria-live="polite"></div>
         <div class="slip-actions">
           <button class="btn" type="button" id="save-list">Save my trolley</button>
+          <button class="btn secondary" type="button" id="shop-mode">Shop with this list</button>
           <a class="btn secondary" href="#nearby">Find these shops</a>
         </div>
         <p class="status" id="save-status" role="status"></p>
@@ -99,12 +110,20 @@
     <p><a href="/account">Your account</a></p>
   </footer>
 
-  <dialog id="item-dialog" aria-labelledby="item-dialog-title">
+  <dialog id="shop-dialog" class="sheet" aria-labelledby="shop-dialog-title">
+    <div class="dialog-head">
+      <h2 id="shop-dialog-title">Your shopping list</h2>
+      <button class="linklike" type="button" id="shop-dialog-close">Close</button>
+    </div>
+    <div class="sheet-body" id="shop-dialog-body"></div>
+  </dialog>
+
+  <dialog id="item-dialog" class="sheet" aria-labelledby="item-dialog-title">
     <div class="dialog-head">
       <h2 id="item-dialog-title">Add your own item</h2>
       <button class="linklike" type="button" id="item-dialog-close">Close</button>
     </div>
-    <div id="item-dialog-body"></div>
+    <div class="sheet-body" id="item-dialog-body"></div>
   </dialog>
 
   <div class="trolley-bar" id="trolley-bar" aria-live="polite">

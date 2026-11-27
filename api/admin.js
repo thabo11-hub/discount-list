@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { rpc } from '../lib/db.js';
+import { DbError, rpc } from '../lib/db.js';
 import { clearDealsCache } from '../lib/deals.js';
 import { HttpError, query, readJson, readRaw, route, send } from '../lib/http.js';
 import { MAX_UPLOAD_BYTES, sniffImage } from '../lib/images.js';
@@ -153,7 +153,30 @@ async function deleteUpload(ctx, s) {
   send(ctx.res, 200, { ok: true });
 }
 
+async function reports(ctx, s) {
+  const st = query(ctx.req).get('status') || 'pending';
+  if (!['pending', 'approved'].includes(st)) v.fail('status', 'Choose pending or approved.');
+  send(ctx.res, 200, { reports: await rpc('dl_reports_admin', { p_actor: s.user_id, p_status: st }) });
+}
+
+// Approve a shopper's shelf price (it shows for everyone) or reject it (also removes a live one).
+async function reviewReport(ctx, s) {
+  const b = await readJson(ctx.req);
+  if (!['approve', 'reject'].includes(b.decision)) v.fail('decision', 'Choose approve or reject.');
+  try {
+    const r = await rpc('dl_report_review', { p_actor: s.user_id, p_id: v.uuid(b.id), p_decision: b.decision });
+    clearDealsCache();
+    send(ctx.res, 200, r);
+  } catch (err) {
+    if (err instanceof DbError && err.message === 'not_found') {
+      throw new HttpError(404, 'That price was already handled or no longer exists.', { code: 'not_found' });
+    }
+    throw err;
+  }
+}
+
 const WRITES = {
+  'report-review': reviewReport,
   offer: saveOffer,
   'offer-delete': deleteOffer,
   product: saveProduct,
@@ -165,8 +188,9 @@ export default route(['GET', 'POST'], async (ctx) => {
   const s = await requireAdmin(ctx);
   const action = query(ctx.req).get('action') || '';
   if (ctx.req.method === 'GET') {
-    if (action !== 'overview') throw new HttpError(404, 'Unknown action.', { code: 'not_found' });
-    return overview(ctx, s);
+    if (action === 'overview') return overview(ctx, s);
+    if (action === 'reports') return reports(ctx, s);
+    throw new HttpError(404, 'Unknown action.', { code: 'not_found' });
   }
   const fn = Object.hasOwn(WRITES, action) ? WRITES[action] : null;
   if (!fn) throw new HttpError(404, 'Unknown action.', { code: 'not_found' });

@@ -129,5 +129,19 @@ export function withUserItems(deals, items) {
   };
 }
 
+/** Shelf prices reported by shoppers and approved by the admin become products "c-<barcode>". */
+export function withShopperPrices(deals, shopper) {
+  if (!shopper?.products?.length) return deals;
+  const last = [deals.updated_at, shopper.updated_at].filter(Boolean).sort().pop() || null;
+  return {
+    ...deals,
+    products: [...deals.products, ...shopper.products.map((p, i) => ({
+      id: p.id, gtin: p.gtin, name: p.name, unit: 'item', default_qty: 1, sort: 100000 + i, active: true, shopper: true,
+    }))],
+    offers: [...deals.offers, ...shopper.offers],
+    updated_at: last,
+  };
+}
+
 export const UNIT_SUFFIX = { item: '', litre: '/L', kg: '/kg' };
 export const UNIT_SHORT = { item: '', litre: 'L', kg: 'kg' };

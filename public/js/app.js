@@ -1,5 +1,7 @@
 import { itemForm } from './itemform.js';
 import { UNIT_SHORT, UNIT_SUFFIX, compareProduct, indexOffers, quote, rand, unitCents, withUserItems } from './pricing.js';
+import { reportForm } from './report.js';
+import { shoppingList } from './shop.js';
 import { api, clear, h, loadMe, status } from './ui.js';
 
 const SHORT = { sixty60: 'Sixty60', 'pnp-asap': 'PnP asap!', makro: 'Makro' };
@@ -68,6 +70,8 @@ function readLocal() {
 
 // ------------------------------------------------------------------ shelf
 
+const shortDate = (d) => new Date(`${d}T12:00:00`).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
+
 function tagFor(product, store, best) {
   const offer = state.index.get(product.id)?.get(store.id);
   const storeName = h('span', { class: 'tag-store' }, SHORT[store.id] || store.name);
@@ -78,7 +82,8 @@ function tagFor(product, store, best) {
   }
   const unit = unitCents(offer);
   const isBest = best && Math.abs(unit - best.unit) < 0.5; // ties share the tag
-  const deal = [offer.brand && !product.name.toLowerCase().startsWith(offer.brand.toLowerCase()) ? offer.brand : '', offer.deal_text]
+  const seen = offer.seen_on ? `${offer.deal_qty > 1 ? `${offer.deal_qty} for ${rand(offer.deal_price_cents)}, ` : ''}seen ${shortDate(offer.seen_on)}` : '';
+  const deal = [offer.brand && !product.name.toLowerCase().startsWith(offer.brand.toLowerCase()) ? offer.brand : '', offer.deal_text, seen, offer.branch]
     .filter(Boolean)
     .join(', ');
   return h('div', { class: `tag${isBest ? ' best' : ''}`, dataset: { store: store.id } },
@@ -130,14 +135,15 @@ function renderShelf() {
     const edit = product.mine ? h('button', { type: 'button', class: 'linklike small' }, 'Edit') : null;
     edit?.addEventListener('click', () => openItemDialog(product.id.slice(2)));
     const offers = [...(state.index.get(product.id)?.values() || [])];
-    const li = h('li', { class: `item${product.mine ? ' mine' : ''}`, dataset: { id: product.id } },
+    const li = h('li', { class: `item${product.mine ? ' mine' : ''}${product.shopper ? ' shopper' : ''}`, dataset: { id: product.id } },
       h('div', { class: 'item-head' },
         h('label', { class: 'pick' }, cb, h('span', {}, product.name, unitNote ? h('small', {}, unitNote) : null)),
         h('div', { class: 'qty' }, minus, out, plus)),
       product.mine ? h('p', { class: 'mine-note' }, h('span', { class: 'chip' }, 'Only you see this'), edit) : null,
+      product.shopper ? h('p', { class: 'mine-note' }, h('span', { class: 'chip shopper' }, 'Shopper prices'), 'Seen on the shelf and checked') : null,
       h('div', { class: 'tags' }, state.deals.stores.map((s) => tagFor(product, s, best))),
       h('p', { class: 'item-note', id: `note-${product.id}` }));
-    li.dataset.find = [product.name, ...offers.map((o) => `${o.brand} ${o.deal_text}`)].join(' ').toLowerCase();
+    li.dataset.find = [product.name, product.gtin || '', ...offers.map((o) => `${o.brand} ${o.deal_text}`)].join(' ').toLowerCase();
     cb.addEventListener('change', () => {
       state.picked.set(product.id, cb.checked);
       renderRow(li, product);
@@ -482,9 +488,74 @@ function openItemDialog(editId, prefillName = '') {
   body.querySelector('input')?.focus();
 }
 
+// ------------------------------------------------------------------ at the shop
+
+function signInPrompt(body, why) {
+  body.append(h('p', {}, why),
+    h('div', { class: 'slip-actions' }, h('a', { class: 'btn', href: '/account' }, 'Sign in'),
+      h('a', { class: 'btn secondary', href: '/account?tab=signup' }, 'Create an account')));
+}
+
+function openReportDialog() {
+  const d = $('item-dialog');
+  const body = clear($('item-dialog-body'));
+  $('item-dialog-title').textContent = 'Report a shelf price';
+  if (!state.user) signInPrompt(body, 'Sign in to send shelf prices. We check each one before everyone sees it.');
+  else reportForm(body, { onDone: closeDialog });
+  if (!d.open) d.showModal();
+}
+
+function openShopDialog() {
+  const d = $('shop-dialog');
+  shoppingList(clear($('shop-dialog-body')), {
+    q: quote(state.deals, trolleyItems()),
+    stores: state.deals.stores,
+    updatedAt: state.publicDeals.updated_at,
+    onReport: openReportDialog,
+    onClose: () => d.close(),
+  });
+  if (!d.open) d.showModal();
+}
+
+// Installable app: a small service worker keeps the page and the latest prices for a weak signal.
+function setupApp() {
+  if ('serviceWorker' in navigator && window.isSecureContext) {
+    try {
+      const policy = window.trustedTypes?.createPolicy('ts-sw', {
+        createScriptURL: (u) => {
+          if (u !== '/sw.js') throw new TypeError('Blocked script URL');
+          return u;
+        },
+      });
+      navigator.serviceWorker.register(policy ? policy.createScriptURL('/sw.js') : '/sw.js', { scope: '/' }).catch(() => {});
+    } catch {
+      /* the site works without it */
+    }
+  }
+  const btn = $('install-app');
+  let prompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    prompt = e;
+    btn.hidden = false;
+  });
+  btn.addEventListener('click', async () => {
+    if (!prompt) return;
+    btn.hidden = true;
+    prompt.prompt();
+    prompt = null;
+  });
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  if (!standalone && /iphone|ipad|ipod/i.test(navigator.userAgent)) $('ios-tip').hidden = false;
+}
+
 // ------------------------------------------------------------------ start
 
 async function start() {
+  setupApp();
+  $('report-price').addEventListener('click', openReportDialog);
+  $('shop-mode').addEventListener('click', openShopDialog);
+  $('shop-dialog-close').addEventListener('click', () => $('shop-dialog').close());
   setupNearby();
   $('save-list').addEventListener('click', saveTrolley);
   $('select-all').addEventListener('click', () => {
@@ -526,7 +597,7 @@ async function start() {
       /* fall back to this device */
     }
   }
-  items ||= readLocal() || state.publicDeals.products.map((p) => ({ id: p.id, qty: p.default_qty }));
+  items ||= readLocal() || state.publicDeals.products.filter((p) => !p.shopper).map((p) => ({ id: p.id, qty: p.default_qty }));
   applyItems(items);
   renderShelf();
   changed();
